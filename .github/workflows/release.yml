@@ -1,0 +1,100 @@
+name: Sign & release Firefox add-on
+
+# Trigger by pushing a version tag that matches manifest.json, e.g.:
+#   git tag v1.1 && git push origin v1.1
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the Release and commit the regenerated updates.json
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main # we commit updates.json back to the default branch
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # The tag (v1.1) must match the version inside manifest.json (1.1).
+      - name: Verify tag matches manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST=$(node -p "require('./manifest.json').version")
+          echo "tag=$TAG manifest=$MANIFEST"
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag v$TAG does not match manifest.json version $MANIFEST"
+            exit 1
+          fi
+
+      - name: Sign the add-on with Mozilla (unlisted / self-distributed)
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          npx --yes web-ext@latest sign \
+            --channel=unlisted \
+            --api-key="$AMO_JWT_ISSUER" \
+            --api-secret="$AMO_JWT_SECRET" \
+            --source-dir=. \
+            --artifacts-dir=dist \
+            --ignore-files \
+              "README.md" "updates.json" "dist/**" "scripts/**" \
+              ".github/**" ".gitignore" "*.xpi" "*.zip"
+
+      # web-ext names the signed file with underscores; normalise it to the name
+      # that updates.json + the Release asset URL expect.
+      - name: Normalise signed filename
+        id: xpi
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          SIGNED=$(ls dist/*.xpi | head -1)
+          FINAL="dist/homework-sheets-${VERSION}.xpi"
+          mv "$SIGNED" "$FINAL"
+          HASH=$(sha256sum "$FINAL" | cut -d' ' -f1)
+          echo "version=$VERSION"     >> "$GITHUB_OUTPUT"
+          echo "file=$FINAL"          >> "$GITHUB_OUTPUT"
+          echo "hash=$HASH"           >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release and attach signed .xpi
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.xpi.outputs.file }}" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Signed Firefox add-on ${{ steps.xpi.outputs.version }}."
+
+      # Point Firefox's update check at the new signed build.
+      - name: Update updates.json and commit to main
+        run: |
+          VERSION="${{ steps.xpi.outputs.version }}"
+          HASH="${{ steps.xpi.outputs.hash }}"
+          REPO="${{ github.repository }}"
+          LINK="https://github.com/${REPO}/releases/download/v${VERSION}/homework-sheets-${VERSION}.xpi"
+          cat > updates.json <<EOF
+          {
+            "addons": {
+              "homework-sheets@eurognosi-fni.com": {
+                "updates": [
+                  {
+                    "version": "${VERSION}",
+                    "update_link": "${LINK}",
+                    "update_hash": "sha256:${HASH}"
+                  }
+                ]
+              }
+            }
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add updates.json
+          git commit -m "Release v${VERSION}: update Firefox update manifest" || echo "no changes"
+          git push origin main
