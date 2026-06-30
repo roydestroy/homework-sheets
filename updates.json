@@ -1,0 +1,12 @@
+{
+  "addons": {
+    "homework-sheets@eurognosi-fni.com": {
+      "updates": [
+        {
+          "version": "1.0",
+          "update_link": "https://github.com/roydestroy/homework-sheets/releases/download/v1.0/homework-sheets-1.0.xpi"
+        }
+      ]
+    }
+  }
+}

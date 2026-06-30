@@ -37,10 +37,30 @@ Then visit any `eurognosi-fni.com` group page as above.
 
 ### Updating
 
-Since this isn't auto-updating through a store:
+**Firefox (signed install): updates automatically.** Once a teacher has installed a Mozilla-signed `.xpi`, Firefox periodically checks the update manifest at [`updates.json`](updates.json) in this repo and silently installs newer signed versions — no manual step. See [Releasing a new Firefox version](#releasing-a-new-firefox-version) for how new versions get published.
+
+**Chrome / Edge (and Firefox temporary loads): manual.** These are unpacked installs that don't auto-update:
 
 1. Download the latest version of this repo and replace the old folder's contents.
 2. Open your browser's extensions page (`chrome://extensions`, `edge://extensions`, or `about:debugging` in Firefox) and click the reload icon (⟳) on the extension's card. In Firefox, a temporary add-on must be loaded again after a restart.
+
+## Releasing a new Firefox version (auto-update pipeline)
+
+Signed Firefox builds are hosted on this repo's **GitHub Releases**, and Firefox finds them through `update_url` in the manifest, which points at [`updates.json`](updates.json). The whole flow is automated by [`.github/workflows/release.yml`](.github/workflows/release.yml).
+
+**One-time setup:**
+
+1. Get a Mozilla add-on API key/secret at [addons.mozilla.org/developers/addon/api/key/](https://addons.mozilla.org/en-US/developers/addon/api/key/).
+2. Add them as repository secrets (**Settings → Secrets and variables → Actions**): `AMO_JWT_ISSUER` (the `user:...` key) and `AMO_JWT_SECRET`.
+
+**Each release:**
+
+1. Bump `"version"` in `manifest.json` (e.g. `1.0` → `1.1`). Mozilla rejects re-uploading the same version.
+2. Commit, then tag and push: `git tag v1.1 && git push origin v1.1` (the `v1.1` tag must match the manifest version — the workflow checks this).
+
+The workflow then signs the add-on with Mozilla (unlisted), attaches the signed `homework-sheets-1.1.xpi` to a GitHub Release, and rewrites `updates.json` to point at it. Installed Firefox copies pick up the new version on their next update check.
+
+To build an unsigned `.xpi` locally (for manual testing or a one-off upload to AMO), run `./scripts/build-xpi.sh` — it writes `dist/homework-sheets-<version>.xpi`.
 
 ## Post format
 
