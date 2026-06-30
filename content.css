@@ -1,0 +1,83 @@
+.eg-hw-toggle-btn {
+  margin-left: 8px;
+  background: #1F4E79;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+}
+.eg-hw-toggle-btn:hover {
+  background: #163a59;
+}
+
+.eg-hw-panel {
+  margin: 8px 20px 16px 20px;
+  padding: 12px;
+  background: #f4f7fa;
+  border: 1px solid #c9d2da;
+  border-radius: 8px;
+  font-family: Arial, sans-serif;
+}
+
+.eg-hw-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eg-hw-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+
+.eg-hw-input-count {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid #c9d2da;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.eg-hw-input-name {
+  flex: 1;
+  min-width: 160px;
+  padding: 6px 8px;
+  border: 1px solid #c9d2da;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+.eg-hw-generate-btn {
+  background: #1F4E79;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.eg-hw-generate-btn:hover {
+  background: #163a59;
+}
+.eg-hw-generate-btn:disabled {
+  background: #9bb0c2;
+  cursor: not-allowed;
+}
+
+.eg-hw-msg {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.eg-hw-error {
+  color: #8a1f15;
+}
+.eg-hw-success {
+  color: #1f6b2e;
+}
