@@ -1,6 +1,6 @@
-# Homework Sheets — Chrome Extension
+# Homework Sheets — Browser Extension
 
-A Chrome extension for [eurognosi-fni.com](https://www.eurognosi-fni.com) that adds a button to each homework post in the school's Wix Groups, generating a printable, two-column Word document — one strip of homework per student, ready to cut and stick into daily planners.
+A browser extension (Chrome, Microsoft Edge, Firefox) for [eurognosi-fni.com](https://www.eurognosi-fni.com) that adds a button to each homework post in the school's Wix Groups, generating a printable, two-column Word document — one strip of homework per student, ready to cut and stick into daily planners.
 
 ## What it does
 
@@ -15,21 +15,32 @@ The generated document:
 
 ## Installation
 
-This is not published on the Chrome Web Store — it's installed manually as an unpacked extension, since it's intended for internal use by school staff.
+This is not published on any extension store — it's installed manually as an unpacked extension, since it's intended for internal use by school staff. The same files work on Chrome, Microsoft Edge, and Firefox.
 
-1. Download this repository (**Code → Download ZIP**) and unzip it somewhere permanent on your computer (not a folder you might later delete, like Downloads — Chrome keeps loading the extension from this exact location).
-2. Open Chrome and go to `chrome://extensions`.
-3. Toggle on **Developer mode** (top-right corner).
+### Chrome / Microsoft Edge
+
+1. Download this repository (**Code → Download ZIP**) and unzip it somewhere permanent on your computer (not a folder you might later delete, like Downloads — the browser keeps loading the extension from this exact location).
+2. Open `chrome://extensions` (Chrome) or `edge://extensions` (Edge).
+3. Toggle on **Developer mode** (top-right corner in Chrome, bottom-left in Edge).
 4. Click **Load unpacked**.
 5. Select the unzipped folder (the one containing `manifest.json` directly inside it).
 6. Visit any group page on `eurognosi-fni.com` (e.g. `/group/...` or `/en/group/...`) — homework posts should now show the **📄 Homework Sheet** button.
 
+### Firefox
+
+Firefox can load the extension two ways:
+
+- **Temporary (quickest, but cleared on restart):** go to `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on…**, and select the `manifest.json` file inside the unzipped folder. The extension stays until you quit Firefox.
+- **Permanent:** Firefox only installs signed add-ons permanently. Either submit a packaged `.xpi` to [addons.mozilla.org](https://addons.mozilla.org) for signing (it can be kept unlisted/self-distributed), or use **Firefox Developer Edition** / **ESR** with `xpinstall.signatures.required` set to `false` in `about:config`, then install the `.xpi`.
+
+Then visit any `eurognosi-fni.com` group page as above.
+
 ### Updating
 
-Since this isn't auto-updating through the Web Store:
+Since this isn't auto-updating through a store:
 
 1. Download the latest version of this repo and replace the old folder's contents.
-2. Go to `chrome://extensions` and click the reload icon (⟳) on the extension's card.
+2. Open your browser's extensions page (`chrome://extensions`, `edge://extensions`, or `about:debugging` in Firefox) and click the reload icon (⟳) on the extension's card. In Firefox, a temporary add-on must be loaded again after a restart.
 
 ## Post format
 
@@ -53,8 +64,8 @@ Notes:
 
 ## How it works (technical notes)
 
-- `manifest.json` — restricts the extension to group pages on eurognosi-fni.com (including language-prefixed paths like `/en/group/...`), and loads the two script files below into the page.
-- `docx-lib.js` — the [docx](https://www.npmjs.com/package/docx) npm library (v9.7.1), bundled directly rather than loaded from a CDN, since Chrome's extension content-script CSP blocks loading remote scripts. Note: it's named `docx-lib.js`, not `docx.umd.cjs` — a `.cjs` extension silently breaks Chrome's content script loading, which took a while to track down.
+- `manifest.json` — restricts the extension to group pages on eurognosi-fni.com (including language-prefixed paths like `/en/group/...`), and loads the two script files below into the page. It's a Manifest V3 content-script-only extension with no background script or special permissions, so the same file works unchanged on Chrome, Edge, and Firefox; the `browser_specific_settings.gecko` block supplies the add-on ID Firefox requires and is ignored by Chromium browsers.
+- `docx-lib.js` — the [docx](https://www.npmjs.com/package/docx) npm library (v9.7.1), bundled directly rather than loaded from a CDN, since the extension content-script CSP blocks loading remote scripts. Note: it's named `docx-lib.js`, not `docx.umd.cjs` — a `.cjs` extension silently breaks content script loading, which took a while to track down.
 - `content.js` — finds homework posts on the page (`[data-hook="feed-item"]`), expands any truncated ones, parses the `IN CLASS` / `HOMEWORK` sections, injects the button/panel UI, and generates the `.docx` entirely client-side using `docx-lib.js`.
 - `content.css` — styling for the injected button and panel.
 
