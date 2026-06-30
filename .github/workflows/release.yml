@@ -62,14 +62,22 @@ jobs:
           echo "file=$FINAL"          >> "$GITHUB_OUTPUT"
           echo "hash=$HASH"           >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release and attach signed .xpi
+      - name: Publish signed .xpi to the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "${{ steps.xpi.outputs.file }}" \
-            --title "$GITHUB_REF_NAME" \
-            --notes "Signed Firefox add-on ${{ steps.xpi.outputs.version }}."
+          # Idempotent: a release for this tag may already exist (e.g. created
+          # by hand, or by a previous run). Create it only if missing, then
+          # attach/overwrite the signed .xpi either way.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; uploading asset."
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes "Signed Firefox add-on ${{ steps.xpi.outputs.version }}."
+          fi
+          gh release upload "$GITHUB_REF_NAME" \
+            "${{ steps.xpi.outputs.file }}" --clobber
 
       # Point Firefox's update check at the new signed build.
       - name: Update updates.json and commit to main
