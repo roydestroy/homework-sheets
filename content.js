@@ -102,13 +102,10 @@
   async function extractAndParseWithRetry(feedItemEl, attempts = 4, delayMs = 350) {
     for (let i = 0; i < attempts; i++) {
       const lines = extractPostLines(feedItemEl);
-      try {
-        const parsed = parsePost(lines);
-        if (parsed) return parsed;
-      } catch (e) {
-        // "HOMEWORK before IN CLASS" type errors won't fix themselves on retry — stop early
-        throw e;
-      }
+      // parsePost may throw ("HOMEWORK before IN CLASS") — that won't fix itself
+      // on retry, so let it propagate instead of retrying.
+      const parsed = parsePost(lines);
+      if (parsed) return parsed;
       if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
     }
     return null;
@@ -116,8 +113,8 @@
 
   // Matches a line that is ONLY the marker (optionally bold, optionally with a colon),
   // e.g. "IN CLASS", "**HOMEWORK**", "HOMEWORK:" — not a line that merely contains the word.
-  const IN_CLASS_LINE = /^\*{0,2}IN[\s-]CLASS\*{0,2}:?$/;
-  const HOMEWORK_LINE = /^\*{0,2}HOMEWORK\*{0,2}:?$/;
+  const IN_CLASS_LINE = /^\*{0,2}IN[\s-]+CLASS:?\*{0,2}:?$/;
+  const HOMEWORK_LINE = /^\*{0,2}HOMEWORK:?\*{0,2}:?$/;
 
   function parsePost(lines) {
     const inClassIdx = lines.findIndex(l => IN_CLASS_LINE.test(l.trim()));
@@ -218,19 +215,22 @@
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Revoking synchronously can abort the download in Firefox — give it a moment to start
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
   // ---------- UI ----------
 
-  function createPanel(feedItemEl, parsed, defaultTitle) {
+  const MAX_STUDENTS = 60;
+
+  function createPanel(parsed, defaultTitle) {
     const panel = document.createElement('div');
     panel.className = 'eg-hw-panel';
     panel.innerHTML = `
       <div class="eg-hw-row">
         <label class="eg-hw-label">Students</label>
-        <input type="number" class="eg-hw-input-count" min="1" max="60" value="10">
-        <input type="text" class="eg-hw-input-name" value="${defaultTitle.replace(/"/g, '&quot;')}">
+        <input type="number" class="eg-hw-input-count" min="1" max="${MAX_STUDENTS}" value="10">
+        <input type="text" class="eg-hw-input-name">
         <button class="eg-hw-generate-btn">Generate Word file</button>
       </div>
       <div class="eg-hw-msg"></div>
@@ -241,13 +241,14 @@
     const msg = panel.querySelector('.eg-hw-msg');
     const countInput = panel.querySelector('.eg-hw-input-count');
     const nameInput = panel.querySelector('.eg-hw-input-name');
+    nameInput.value = defaultTitle;
 
     btn.addEventListener('click', async () => {
       msg.textContent = '';
       msg.className = 'eg-hw-msg';
       const studentCount = parseInt(countInput.value, 10);
-      if (!studentCount || studentCount < 1) {
-        msg.textContent = 'Please enter a valid number of students.';
+      if (!studentCount || studentCount < 1 || studentCount > MAX_STUDENTS) {
+        msg.textContent = `Please enter a number of students between 1 and ${MAX_STUDENTS}.`;
         msg.className = 'eg-hw-msg eg-hw-error';
         return;
       }
@@ -293,7 +294,7 @@
     toggleBtn.type = 'button';
 
     const title = getPostTitle(feedItemEl);
-    const panel = createPanel(feedItemEl, parsed, title);
+    const panel = createPanel(parsed, title);
 
     toggleBtn.addEventListener('click', () => {
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
@@ -312,9 +313,13 @@
   // Initial scan
   scanForPosts();
 
-  // Wix Groups loads posts dynamically (infinite scroll / SPA navigation) — watch for new ones
+  // Wix Groups loads posts dynamically (infinite scroll / SPA navigation) — watch for new
+  // ones. Wix mutates the DOM constantly (and our own injections mutate it too), so the
+  // scan is debounced: one pass shortly after mutations quiet down, not one per mutation.
+  let scanTimer = null;
   const observer = new MutationObserver(() => {
-    scanForPosts();
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(scanForPosts, 200);
   });
   observer.observe(document.body, { childList: true, subtree: true });
 })();
