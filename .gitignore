@@ -5,3 +5,6 @@ node_modules/
 dist/
 *.xpi
 *.zip
+
+# Visual Studio per-machine editor state (cache, window layout, solution DB)
+.vs/
