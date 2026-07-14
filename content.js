@@ -186,7 +186,8 @@
 
     children.push(...blockParagraphs(inClassLines));
 
-    for (let i = 0; i < studentCount; i++) {
+    // studentCount + 1: one homework slip per student, plus one for the teacher
+    for (let i = 0; i < studentCount + 1; i++) {
       children.push(...blockParagraphs(homeworkLines));
     }
 
