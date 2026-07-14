@@ -39,7 +39,9 @@ Then visit any `eurognosi-fni.com` group page as above.
 
 **Firefox (signed install): updates automatically.** Once a teacher has installed a Mozilla-signed `.xpi`, Firefox periodically checks the update manifest at [`updates.json`](updates.json) in this repo and silently installs newer signed versions — no manual step. See [Releasing a new Firefox version](#releasing-a-new-firefox-version) for how new versions get published.
 
-**Chrome / Edge (and Firefox temporary loads): manual.** These are unpacked installs that don't auto-update:
+**Chrome / Edge (store install): updates automatically.** If staff installed the extension from its unlisted Chrome Web Store link (recommended — see [Releasing a new Chrome/Edge version](#releasing-a-new-chromeedge-version)), Chrome and Edge check for and install newer versions on their own, exactly like Firefox. This also fixes the "extension keeps disappearing" problem of unpacked installs.
+
+**Chrome / Edge (unpacked loads) and Firefox temporary loads: manual.** These don't auto-update:
 
 1. Download the latest version of this repo and replace the old folder's contents.
 2. Open your browser's extensions page (`chrome://extensions`, `edge://extensions`, or `about:debugging` in Firefox) and click the reload icon (⟳) on the extension's card. In Firefox, a temporary add-on must be loaded again after a restart.
@@ -61,6 +63,24 @@ Signed Firefox builds are hosted on this repo's **GitHub Releases**, and Firefox
 The workflow then signs the add-on with Mozilla (unlisted), attaches the signed `homework-sheets-1.1.xpi` to a GitHub Release, and rewrites `updates.json` to point at it. Installed Firefox copies pick up the new version on their next update check.
 
 To build an unsigned `.xpi` locally (for manual testing or a one-off upload to AMO), run `./scripts/build-xpi.sh` — it writes `dist/homework-sheets-<version>.xpi`.
+
+## Releasing a new Chrome/Edge version (auto-update pipeline)
+
+Chrome and Edge builds are published to the **Chrome Web Store** as an *unlisted* item (installable only via its direct link, but auto-updating like any store extension). The same [`.github/workflows/release.yml`](.github/workflows/release.yml) that signs Firefox also uploads and publishes the Chrome build — a single version tag releases to both.
+
+**One-time setup:**
+
+1. **Create the store item once, by hand.** Build the upload zip with `./scripts/build-zip.sh` (writes `dist/homework-sheets-<version>.zip`), then in the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) create a new item, upload that zip, set **Visibility → Unlisted**, and publish. Note the **item ID** shown on the item's page (a 32-character string) — that's `CHROME_EXTENSION_ID`. This first publish can't be automated because the item doesn't exist yet; every release after this is automatic.
+2. **Set up Chrome Web Store API credentials** so the workflow can upload on your behalf. Following the [chrome-webstore-upload-keys guide](https://github.com/fregante/chrome-webstore-upload/blob/main/How%20to%20generate%20Google%20API%20keys.md): in the Google Cloud Console create a project, enable the **Chrome Web Store API**, create an **OAuth client ID** (Desktop app), then use that client ID/secret to generate a **refresh token**.
+3. **Add them as repository secrets** (**Settings → Secrets and variables → Actions**):
+   - `CHROME_EXTENSION_ID` — the item ID from step 1
+   - `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `CHROME_REFRESH_TOKEN` — from step 2
+
+   (Edge is a separate store with its own dashboard and no fee; the same `dist/*.zip` can be uploaded there by hand whenever needed. Only Chrome is automated here.)
+
+**Each release:** identical to Firefox — bump `"version"` in `manifest.json`, then `git tag v1.1 && git push origin v1.1`. The workflow verifies the tag matches the manifest, builds the zip, and uploads + publishes it to the Chrome Web Store; installed Chrome/Edge copies pick up the new version on their next update check.
+
+To build the Chrome/Edge zip locally (for the manual first upload, or Edge), run `./scripts/build-zip.sh`.
 
 ## Post format
 

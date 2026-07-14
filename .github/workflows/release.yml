@@ -1,4 +1,4 @@
-name: Sign & release Firefox add-on
+name: Release add-on (Firefox + Chrome/Edge)
 
 # Trigger by pushing a version tag that matches manifest.json, e.g.:
 #   git tag v1.1 && git push origin v1.1
@@ -113,3 +113,45 @@ jobs:
           git commit -m "Release v${VERSION}: update Firefox update manifest" || echo "no changes"
           # main may have moved since the fetch above — rebase and retry once
           git push origin main || { git pull --rebase origin main && git push origin main; }
+
+  chrome:
+    runs-on: ubuntu-latest
+    steps:
+      # Checks out the tagged commit, so what gets packaged and published is
+      # exactly what was tagged.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # The tag (v1.1) must match the version inside manifest.json (1.1).
+      - name: Verify tag matches manifest version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST=$(node -p "require('./manifest.json').version")
+          echo "tag=$TAG manifest=$MANIFEST"
+          if [ "$TAG" != "$MANIFEST" ]; then
+            echo "::error::Tag v$TAG does not match manifest.json version $MANIFEST"
+            exit 1
+          fi
+
+      - name: Build the Chrome/Edge upload zip
+        run: ./scripts/build-zip.sh
+
+      # Uploads the new version to the existing Chrome Web Store item and
+      # publishes it. The item must be created once by hand first (see README) so
+      # CHROME_EXTENSION_ID and the OAuth credentials exist. --auto-publish sends
+      # it straight to publishing; for an unlisted item that means it goes live
+      # (still only reachable by direct link) after Google's review.
+      - name: Upload & publish to the Chrome Web Store
+        env:
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./manifest.json').version")
+          npx --yes chrome-webstore-upload-cli@3 upload \
+            --source "dist/homework-sheets-${VERSION}.zip" \
+            --auto-publish
