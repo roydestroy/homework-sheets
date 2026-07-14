@@ -70,7 +70,7 @@ Chrome and Edge builds are published to the **Chrome Web Store** as an *unlisted
 
 **One-time setup:**
 
-1. **Create the store item once, by hand.** Build the upload zip with `./scripts/build-zip.sh` (writes `dist/homework-sheets-<version>.zip`), then in the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) create a new item, upload that zip, set **Visibility → Unlisted**, and publish. Note the **item ID** shown on the item's page (a 32-character string) — that's `CHROME_EXTENSION_ID`. This first publish can't be automated because the item doesn't exist yet; every release after this is automatic.
+1. **Create the store item once, by hand.** Build the upload zip — `./scripts/build-zip.sh` on macOS/Linux, or `.\scripts\build-zip.ps1` in PowerShell on Windows (both write `dist/homework-sheets-<version>.zip`) — then in the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) create a new item, upload that zip, set **Visibility → Unlisted**, and publish. Note the **item ID** shown on the item's page (a 32-character string) — that's `CHROME_EXTENSION_ID`. This first publish can't be automated because the item doesn't exist yet; every release after this is automatic.
 2. **Set up Chrome Web Store API credentials** so the workflow can upload on your behalf. Following the [chrome-webstore-upload-keys guide](https://github.com/fregante/chrome-webstore-upload/blob/main/How%20to%20generate%20Google%20API%20keys.md): in the Google Cloud Console create a project, enable the **Chrome Web Store API**, create an **OAuth client ID** (Desktop app), then use that client ID/secret to generate a **refresh token**.
 3. **Add them as repository secrets** (**Settings → Secrets and variables → Actions**):
    - `CHROME_EXTENSION_ID` — the item ID from step 1
@@ -80,7 +80,7 @@ Chrome and Edge builds are published to the **Chrome Web Store** as an *unlisted
 
 **Each release:** identical to Firefox — bump `"version"` in `manifest.json`, then `git tag v1.1 && git push origin v1.1`. The workflow verifies the tag matches the manifest, builds the zip, and uploads + publishes it to the Chrome Web Store; installed Chrome/Edge copies pick up the new version on their next update check.
 
-To build the Chrome/Edge zip locally (for the manual first upload, or Edge), run `./scripts/build-zip.sh`.
+To build the Chrome/Edge zip locally (for the manual first upload, or Edge), run `./scripts/build-zip.sh` (macOS/Linux) or `.\scripts\build-zip.ps1` (Windows PowerShell).
 
 ## Post format
 
