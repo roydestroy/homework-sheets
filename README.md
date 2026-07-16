@@ -71,12 +71,18 @@ Chrome and Edge builds are published to the **Chrome Web Store** as an *unlisted
 **One-time setup:**
 
 1. **Create the store item once, by hand.** Build the upload zip — `./scripts/build-zip.sh` on macOS/Linux, or `.\scripts\build-zip.ps1` in PowerShell on Windows (both write `dist/homework-sheets-<version>.zip`) — then in the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) create a new item, upload that zip, set **Visibility → Unlisted**, and publish. Note the **item ID** shown on the item's page (a 32-character string) — that's `CHROME_EXTENSION_ID`. This first publish can't be automated because the item doesn't exist yet; every release after this is automatic.
-2. **Set up Chrome Web Store API credentials** so the workflow can upload on your behalf. Following the [chrome-webstore-upload-keys guide](https://github.com/fregante/chrome-webstore-upload/blob/main/How%20to%20generate%20Google%20API%20keys.md): in the Google Cloud Console create a project, enable the **Chrome Web Store API**, create an **OAuth client ID** (Desktop app), then use that client ID/secret to generate a **refresh token**.
+2. **Set up Chrome Web Store API credentials** so the workflow can upload on your behalf (loosely follows the [chrome-webstore-upload-keys guide](https://github.com/fregante/chrome-webstore-upload/blob/main/How%20to%20generate%20Google%20API%20keys.md), with the tweaks below that actually work for a personal Google account):
+   1. In the [Google Cloud Console](https://console.cloud.google.com), create a project and **enable the "Chrome Web Store API"**.
+   2. **OAuth consent screen** (now under "Google Auth Platform"): set **User type: External**. On the **Audience** page, **leave the publishing status as "Testing"** and add your Google account under **Test users**. Do **not** click "Publish"/move it to Production — for the Chrome Web Store scope, Production triggers a Google verification requirement that hard-blocks token generation.
+   3. **Credentials → Create OAuth client ID → application type: Web application.** Add `https://developers.google.com/oauthplayground` as an **Authorized redirect URI**. Copy the **Client ID** and **Client secret**.
+   4. Generate a **refresh token** at [developers.google.com/oauthplayground](https://developers.google.com/oauthplayground): ⚙ → "Use your own OAuth credentials" → paste the client ID/secret; in "Input your own scopes" enter `https://www.googleapis.com/auth/chromewebstore`; **Authorize APIs** (sign in as your test user, and click through the "unverified app" warning via **Advanced → continue**); then **Exchange authorization code for tokens** and copy the `refresh_token`.
 3. **Add them as repository secrets** (**Settings → Secrets and variables → Actions**):
    - `CHROME_EXTENSION_ID` — the item ID from step 1
    - `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `CHROME_REFRESH_TOKEN` — from step 2
 
    (Edge is a separate store with its own dashboard and no fee; the same `dist/*.zip` can be uploaded there by hand whenever needed. Only Chrome is automated here.)
+
+> **Token expiry caveat.** Because the OAuth consent screen stays in "Testing" (the only option without going through Google's app verification), the refresh token **expires roughly every 7 days**. This only ever matters at release time: if the `chrome` job fails with an `invalid_grant` (or similar auth) error, the token has aged out — redo step 2.4 to mint a fresh `refresh_token`, update the `CHROME_REFRESH_TOKEN` secret, and re-run the job. Everything else stays as-is.
 
 **Each release:** identical to Firefox — bump `"version"` in `manifest.json`, then `git tag v1.1 && git push origin v1.1`. The workflow verifies the tag matches the manifest, builds the zip, and uploads + publishes it to the Chrome Web Store; installed Chrome/Edge copies pick up the new version on their next update check.
 
