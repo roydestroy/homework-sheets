@@ -3,6 +3,9 @@
 
   const TEXT_COLOR = "000000";
   const PROCESSED_ATTR = 'data-eg-homework-button';
+  const ATTEMPTS_ATTR = 'data-eg-homework-attempts';
+  const MAX_SCAN_ATTEMPTS = 8; // give slow-loading posts several scan passes before giving up for good
+  const inProgress = new WeakSet(); // guards against overlapping scans re-entering the same element
 
   // ---------- Parsing ----------
 
@@ -272,37 +275,65 @@
   }
 
   async function injectButton(feedItemEl) {
-    if (feedItemEl.hasAttribute(PROCESSED_ATTR)) return;
-    feedItemEl.setAttribute(PROCESSED_ATTR, 'true');
+    if (feedItemEl.hasAttribute(PROCESSED_ATTR) || inProgress.has(feedItemEl)) return;
+    inProgress.add(feedItemEl);
 
-    await ensureExpanded(feedItemEl);
-
-    let parsed;
     try {
-      parsed = await extractAndParseWithRetry(feedItemEl);
-    } catch (e) {
-      parsed = null;
+      await ensureExpanded(feedItemEl);
+
+      let parsed;
+      try {
+        parsed = await extractAndParseWithRetry(feedItemEl);
+      } catch (e) {
+        parsed = null;
+      }
+      if (!parsed) {
+        // Content may still be loading (Wix's feed hydrates asynchronously and can be
+        // slower than our retry window). Don't give up permanently on the first miss —
+        // let the next mutation-triggered scan try again, up to a cap so a post that
+        // genuinely isn't homework-formatted doesn't get retried forever.
+        const attempts = Number(feedItemEl.getAttribute(ATTEMPTS_ATTR) || '0') + 1;
+        if (attempts >= MAX_SCAN_ATTEMPTS) {
+          feedItemEl.setAttribute(PROCESSED_ATTR, 'true');
+        } else {
+          feedItemEl.setAttribute(ATTEMPTS_ATTR, String(attempts));
+        }
+        return;
+      }
+
+      const actionsEl = feedItemEl.querySelector('[data-hook="feed-item-stats"]')
+                      || feedItemEl.querySelector('[data-hook="feed-item-actions"]');
+      if (!actionsEl) {
+        // Same reasoning as the parse-failure case above: this element may just not have
+        // rendered its actions bar yet, so retry on later scans instead of giving up for good.
+        const attempts = Number(feedItemEl.getAttribute(ATTEMPTS_ATTR) || '0') + 1;
+        if (attempts >= MAX_SCAN_ATTEMPTS) {
+          feedItemEl.setAttribute(PROCESSED_ATTR, 'true');
+        } else {
+          feedItemEl.setAttribute(ATTEMPTS_ATTR, String(attempts));
+        }
+        return;
+      }
+
+      feedItemEl.setAttribute(PROCESSED_ATTR, 'true');
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'eg-hw-toggle-btn';
+      toggleBtn.textContent = '📄 Homework Sheet';
+      toggleBtn.type = 'button';
+
+      const title = getPostTitle(feedItemEl);
+      const panel = createPanel(parsed, title);
+
+      toggleBtn.addEventListener('click', () => {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      });
+
+      actionsEl.parentElement.insertAdjacentElement('afterend', panel);
+      actionsEl.appendChild(toggleBtn);
+    } finally {
+      inProgress.delete(feedItemEl);
     }
-    if (!parsed) return; // not a homework post, skip silently
-
-    const actionsEl = feedItemEl.querySelector('[data-hook="feed-item-stats"]')
-                    || feedItemEl.querySelector('[data-hook="feed-item-actions"]');
-    if (!actionsEl) return;
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'eg-hw-toggle-btn';
-    toggleBtn.textContent = '📄 Homework Sheet';
-    toggleBtn.type = 'button';
-
-    const title = getPostTitle(feedItemEl);
-    const panel = createPanel(parsed, title);
-
-    toggleBtn.addEventListener('click', () => {
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    });
-
-    actionsEl.parentElement.insertAdjacentElement('afterend', panel);
-    actionsEl.appendChild(toggleBtn);
   }
 
   function scanForPosts() {
