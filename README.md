@@ -15,7 +15,9 @@ The generated document:
 
 ## Installation
 
-This is not published on any extension store — it's installed manually as an unpacked extension, since it's intended for internal use by school staff. The same files work on Chrome, Microsoft Edge, and Firefox.
+**Recommended: install from the store links** (see [Updating](#updating) below) — Chrome/Edge via the unlisted Chrome Web Store item, Firefox via a signed `.xpi` from this repo's GitHub Releases. Either way you get automatic updates with no manual steps, which also avoids the "extension keeps disappearing" problem unpacked installs have.
+
+Loading it unpacked (below) is only needed for local development/testing, or as a fallback if a store install isn't available yet. The same files work on Chrome, Microsoft Edge, and Firefox.
 
 ### Chrome / Microsoft Edge
 
@@ -58,7 +60,9 @@ Signed Firefox builds are hosted on this repo's **GitHub Releases**, and Firefox
 **Each release:**
 
 1. Bump `"version"` in `manifest.json` (e.g. `1.0` → `1.1`). Mozilla rejects re-uploading the same version.
-2. Commit, then tag and push: `git tag v1.1 && git push origin v1.1` (the `v1.1` tag must match the manifest version — the workflow checks this).
+2. Commit (usually via a PR), merge to `main`, then push a matching tag — the `v1.1` tag must match the manifest version, since the workflow checks this. Two ways to do the tag/push step:
+   - **Terminal:** `git tag v1.1 && git push origin v1.1`
+   - **No terminal needed:** on GitHub, go to **Releases → Draft a new release**, type `v1.1` in the "Choose a tag" box and select **"Create new tag: v1.1 on publish"**, set **Target** to `main`, and click **Publish release** — publishing the release pushes the tag, which is what actually triggers the workflow.
 
 The workflow then signs the add-on with Mozilla (unlisted), attaches the signed `homework-sheets-1.1.xpi` to a GitHub Release, and rewrites `updates.json` to point at it. Installed Firefox copies pick up the new version on their next update check.
 
@@ -83,8 +87,12 @@ Chrome and Edge builds are published to the **Chrome Web Store** as an *unlisted
    (Edge is a separate store with its own dashboard and no fee; the same `dist/*.zip` can be uploaded there by hand whenever needed. Only Chrome is automated here.)
 
 > **Token expiry caveat.** Because the OAuth consent screen stays in "Testing" (the only option without going through Google's app verification), the refresh token **expires roughly every 7 days**. This only ever matters at release time: if the `chrome` job fails with an `invalid_grant` (or similar auth) error, the token has aged out — redo step 2.4 to mint a fresh `refresh_token`, update the `CHROME_REFRESH_TOKEN` secret, and re-run the job. Everything else stays as-is.
+>
+> **GitHub secrets are write-only** — once saved, nobody (not even the owner) can view `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, or `CHROME_REFRESH_TOKEN` again from the GitHub UI, only overwrite them. So when refreshing the token you can't "look up" the existing Client ID/Secret from GitHub to reuse in the OAuth Playground — get them from **Google Cloud Console → APIs & Services → Credentials** instead (click the existing OAuth 2.0 Client ID to see the Client ID, and use its reveal/reset option for the secret). Only `CHROME_REFRESH_TOKEN` needs updating for a routine expiry; the Client ID/Secret only change if you regenerate them.
+>
+> **"Pending review" after a release is normal.** Even an unlisted item goes through the Chrome Web Store's automated review queue before an update goes live — the Developer Dashboard will show the new version as "Pending review" for a while (usually minutes, occasionally longer) after the workflow uploads it. No action needed; it flips to "Published" on its own once it clears.
 
-**Each release:** identical to Firefox — bump `"version"` in `manifest.json`, then `git tag v1.1 && git push origin v1.1`. The workflow verifies the tag matches the manifest, builds the zip, and uploads + publishes it to the Chrome Web Store; installed Chrome/Edge copies pick up the new version on their next update check.
+**Each release:** identical to Firefox — bump `"version"` in `manifest.json`, merge, then tag and push (terminal or the GitHub Releases UI, both described above). The workflow verifies the tag matches the manifest, builds the zip, and uploads + publishes it to the Chrome Web Store; installed Chrome/Edge copies pick up the new version on their next update check once the store finishes reviewing it.
 
 To build the Chrome/Edge zip locally (for the manual first upload, or Edge), run `./scripts/build-zip.sh` (macOS/Linux) or `.\scripts\build-zip.ps1` (Windows PowerShell).
 
@@ -112,7 +120,7 @@ Notes:
 
 - `manifest.json` — restricts the extension to group pages on eurognosi-fni.com (including language-prefixed paths like `/en/group/...`), and loads the two script files below into the page. It's a Manifest V3 content-script-only extension with no background script or special permissions, so the same file works unchanged on Chrome, Edge, and Firefox; the `browser_specific_settings.gecko` block supplies the add-on ID Firefox requires and is ignored by Chromium browsers.
 - `docx-lib.js` — the [docx](https://www.npmjs.com/package/docx) npm library (v9.7.1), bundled directly rather than loaded from a CDN, since the extension content-script CSP blocks loading remote scripts. Note: it's named `docx-lib.js`, not `docx.umd.cjs` — a `.cjs` extension silently breaks content script loading, which took a while to track down.
-- `content.js` — finds homework posts on the page (`[data-hook="feed-item"]`), expands any truncated ones, parses the `IN CLASS` / `HOMEWORK` sections, injects the button/panel UI, and generates the `.docx` entirely client-side using `docx-lib.js`.
+- `content.js` — finds homework posts on the page (`[data-hook="feed-item"]`), expands any truncated ones, parses the `IN CLASS` / `HOMEWORK` sections, injects the button/panel UI, and generates the `.docx` entirely client-side using `docx-lib.js`. Since Wix's group feed hydrates content asynchronously, a post isn't marked permanently "processed" on the first miss — a failed parse (or a not-yet-rendered actions bar) just increments a retry counter, and the next mutation-triggered scan tries again, up to a cap of 8 attempts. This is what makes the button show up reliably even when a post's content loads slowly, instead of it working "sometimes" depending on page load speed.
 - `content.css` — styling for the injected button and panel.
 
 All document generation happens in the browser via `Packer.toBlob()` and a triggered download — no data is sent anywhere.
