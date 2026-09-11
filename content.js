@@ -1,6 +1,12 @@
 (function () {
   'use strict';
 
+  // Guards against running twice in the same tab: the background service worker's startup
+  // catch-up (see background.js) can inject this file into a tab that the normal manifest
+  // content-script declaration already loaded it into, if the timing is close.
+  if (window.__egHomeworkSheetsLoaded) return;
+  window.__egHomeworkSheetsLoaded = true;
+
   const TEXT_COLOR = "000000";
   const PROCESSED_ATTR = 'data-eg-homework-button';
   const ATTEMPTS_ATTR = 'data-eg-homework-attempts';

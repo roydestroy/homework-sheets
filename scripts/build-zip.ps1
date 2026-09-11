@@ -18,7 +18,7 @@ New-Item -ItemType Directory -Force -Path dist | Out-Null
 if (Test-Path $out) { Remove-Item $out }
 
 # Only the files the extension actually needs — never the repo metadata.
-$items = "manifest.json", "content.js", "content.css", "docx-lib.js", "icons"
+$items = "manifest.json", "background.js", "content.js", "content.css", "docx-lib.js", "icons"
 Compress-Archive -Path $items -DestinationPath $out
 
 $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()

@@ -16,6 +16,7 @@ rm -f "$OUT"
 # Only the files the extension actually needs — never the repo metadata.
 zip -r -X "$OUT" \
   manifest.json \
+  background.js \
   content.js \
   content.css \
   docx-lib.js \
