@@ -7,6 +7,14 @@
   const MAX_SCAN_ATTEMPTS = 8; // give slow-loading posts several scan passes before giving up for good
   const inProgress = new WeakSet(); // guards against overlapping scans re-entering the same element
 
+  // Diagnostic logging, always on (console.debug so it's quiet unless dev tools are open with
+  // verbose logging enabled). Prefixed so it's easy to filter in the console when troubleshooting
+  // why a specific post isn't getting its button.
+  function log(feedItemEl, ...args) {
+    const title = getPostTitle(feedItemEl);
+    console.debug('[Homework Sheets]', `"${title}"`, ...args);
+  }
+
   // ---------- Parsing ----------
 
   function extractPostLines(feedItemEl) {
@@ -82,6 +90,7 @@
     const moreBtn = findMoreButton(feedItemEl);
     if (!moreBtn) return; // no toggle button at all, nothing to do
 
+    log(feedItemEl, 'found "more" toggle, expanding');
     const contentWrapper = feedItemEl.querySelector('[data-hook="feed-item-content"]');
     const lengthBefore = contentWrapper.textContent.length;
 
@@ -93,6 +102,7 @@
     if (lengthAfter < lengthBefore) {
       // The click made content shorter — it was already expanded and we just collapsed it.
       // Click again to restore the (longer, correct) expanded state.
+      log(feedItemEl, 'toggle collapsed instead of expanding, re-clicking to restore');
       const settledAgain = waitForDomSettle(contentWrapper);
       moreBtn.click();
       await settledAgain;
@@ -103,14 +113,16 @@
   // delays, in case the post's real render timing doesn't match our mutation-settle guess.
   // This makes correctness independent of any specific timing assumption.
   async function extractAndParseWithRetry(feedItemEl, attempts = 4, delayMs = 350) {
+    let lastLines = [];
     for (let i = 0; i < attempts; i++) {
-      const lines = extractPostLines(feedItemEl);
+      lastLines = extractPostLines(feedItemEl);
       // parsePost may throw ("HOMEWORK before IN CLASS") — that won't fix itself
       // on retry, so let it propagate instead of retrying.
-      const parsed = parsePost(lines);
+      const parsed = parsePost(lastLines);
       if (parsed) return parsed;
       if (i < attempts - 1) await new Promise(r => setTimeout(r, delayMs));
     }
+    log(feedItemEl, 'extracted lines on final attempt:', lastLines);
     return null;
   }
 
@@ -274,6 +286,20 @@
     return panel;
   }
 
+  // Shared by both "not ready yet, retry later" branches in injectButton: bump the attempt
+  // counter, and only give up for good (mark permanently processed) once we've had several
+  // scan passes to work with.
+  function retryOrGiveUp(feedItemEl, reason) {
+    const attempts = Number(feedItemEl.getAttribute(ATTEMPTS_ATTR) || '0') + 1;
+    if (attempts >= MAX_SCAN_ATTEMPTS) {
+      log(feedItemEl, `giving up after ${attempts} attempts (${reason})`);
+      feedItemEl.setAttribute(PROCESSED_ATTR, 'true');
+    } else {
+      log(feedItemEl, `attempt ${attempts}/${MAX_SCAN_ATTEMPTS} failed (${reason}), will retry on next scan`);
+      feedItemEl.setAttribute(ATTEMPTS_ATTR, String(attempts));
+    }
+  }
+
   async function injectButton(feedItemEl) {
     if (feedItemEl.hasAttribute(PROCESSED_ATTR) || inProgress.has(feedItemEl)) return;
     inProgress.add(feedItemEl);
@@ -285,6 +311,7 @@
       try {
         parsed = await extractAndParseWithRetry(feedItemEl);
       } catch (e) {
+        log(feedItemEl, 'parsePost threw:', e.message);
         parsed = null;
       }
       if (!parsed) {
@@ -292,12 +319,7 @@
         // slower than our retry window). Don't give up permanently on the first miss —
         // let the next mutation-triggered scan try again, up to a cap so a post that
         // genuinely isn't homework-formatted doesn't get retried forever.
-        const attempts = Number(feedItemEl.getAttribute(ATTEMPTS_ATTR) || '0') + 1;
-        if (attempts >= MAX_SCAN_ATTEMPTS) {
-          feedItemEl.setAttribute(PROCESSED_ATTR, 'true');
-        } else {
-          feedItemEl.setAttribute(ATTEMPTS_ATTR, String(attempts));
-        }
+        retryOrGiveUp(feedItemEl, 'parse failed');
         return;
       }
 
@@ -306,15 +328,11 @@
       if (!actionsEl) {
         // Same reasoning as the parse-failure case above: this element may just not have
         // rendered its actions bar yet, so retry on later scans instead of giving up for good.
-        const attempts = Number(feedItemEl.getAttribute(ATTEMPTS_ATTR) || '0') + 1;
-        if (attempts >= MAX_SCAN_ATTEMPTS) {
-          feedItemEl.setAttribute(PROCESSED_ATTR, 'true');
-        } else {
-          feedItemEl.setAttribute(ATTEMPTS_ATTR, String(attempts));
-        }
+        retryOrGiveUp(feedItemEl, 'no actions bar found');
         return;
       }
 
+      log(feedItemEl, 'button attached');
       feedItemEl.setAttribute(PROCESSED_ATTR, 'true');
 
       const toggleBtn = document.createElement('button');
