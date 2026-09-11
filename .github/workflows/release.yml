@@ -34,6 +34,21 @@ jobs:
             exit 1
           fi
 
+      # Firefox's linter (run by `web-ext sign` below) requires background.scripts
+      # as a fallback whenever background.service_worker is present — the exact
+      # opposite of what the Chrome Web Store validator wants (it rejects
+      # background.scripts outright under manifest_version 3). Since the two
+      # stores need mutually exclusive things from that one key, Firefox gets a
+      # separate staged build with its own manifest variant instead of signing
+      # the repo root's manifest.json (which is the Chrome/Edge-oriented one)
+      # directly. See scripts/write-firefox-manifest.js.
+      - name: Stage Firefox-specific build
+        run: |
+          mkdir -p firefox-build/icons
+          node scripts/write-firefox-manifest.js firefox-build/manifest.json
+          cp background.js content.js content.css docx-lib.js firefox-build/
+          cp icons/*.png firefox-build/icons/
+
       - name: Sign the add-on with Mozilla (unlisted / self-distributed)
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
@@ -43,11 +58,8 @@ jobs:
             --channel=unlisted \
             --api-key="$AMO_JWT_ISSUER" \
             --api-secret="$AMO_JWT_SECRET" \
-            --source-dir=. \
-            --artifacts-dir=dist \
-            --ignore-files \
-              "README.md" "updates.json" "dist/**" "scripts/**" \
-              ".github/**" ".gitignore" "*.xpi" "*.zip"
+            --source-dir=firefox-build \
+            --artifacts-dir=dist
 
       # web-ext names the signed file with underscores; normalise it to the name
       # that updates.json + the Release asset URL expect.
