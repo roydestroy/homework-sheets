@@ -21,15 +21,20 @@
     const contentEl = feedItemEl.querySelector('[data-hook="feed-item-content"]');
     if (!contentEl) return [];
 
-    // Each line of the post is a <p> or <div> inside the ricos viewer.
-    // Walk them in document order, one array entry per line (blank lines kept as '').
+    // Each line of the post is usually a <p> or <div> inside the ricos viewer. Walk them in
+    // document order, one array entry per line (blank lines kept as '').
     const lineEls = contentEl.querySelectorAll('p, div[id^="viewer-"]');
     const lines = [];
     lineEls.forEach(el => {
       // Skip if this element itself contains nested line elements (avoid duplicating text)
       if (el.querySelector('p, div[id^="viewer-"]')) return;
-      const text = el.textContent.replace(/\u00A0/g, ' ').trim();
-      lines.push(text);
+      const text = el.textContent.replace(/\u00A0/g, ' ');
+      // A soft line break (Shift+Enter in Wix's editor) doesn't create a new <p> - it's a
+      // literal newline character inside this same element's text, rendered as a visual line
+      // break via CSS but invisible to the DOM structure. Split those out so e.g. "IN CLASS"
+      // typed with Shift+Enter before the next line still ends up as its own array entry,
+      // exactly like it would if the teacher had pressed Enter instead.
+      text.split(/\r?\n|\u2028|\u2029/).forEach(line => lines.push(line.trim()));
     });
     return lines;
   }
