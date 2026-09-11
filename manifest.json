@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Eurognosi Homework Sheet Generator",
-  "version": "1.7",
+  "version": "1.8",
   "description": "Adds a button to each group post on eurognosi-fni.com that generates a printable homework Word document.",
   "browser_specific_settings": {
     "gecko": {
@@ -16,8 +16,7 @@
     "https://www.eurognosi-fni.com/*/group/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "scripts": ["background.js"]
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
