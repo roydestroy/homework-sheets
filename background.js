@@ -19,9 +19,15 @@ const GROUP_PAGE_URL_FILTER = {
   ],
 };
 
-// Injects docx-lib.js + content.js into a tab's top frame unless they're already there.
-// content.js sets window.__egHomeworkSheetsLoaded, so this can't double-run alongside
-// the manifest's own injection (or a second call from the other caller below).
+// Injects content.css + docx-lib.js + content.js into a tab's top frame unless they're
+// already there. content.js sets window.__egHomeworkSheetsLoaded, so this can't double-run
+// alongside the manifest's own injection (or a second call from the other caller below).
+//
+// The stylesheet has to be inserted here explicitly: executeScript injects JavaScript only,
+// and the manifest's "css" entry is applied by the browser only when it loads a document
+// matching the content-script patterns — which is precisely the case these injections exist
+// to cover. Without it the button renders with default browser styling and the panel it
+// opens is an unstyled strip that's easy to mistake for a dead button.
 async function injectIfMissing(tabId) {
   try {
     const results = await chrome.scripting.executeScript({
@@ -31,6 +37,10 @@ async function injectIfMissing(tabId) {
     const alreadyLoaded = results && results[0] && results[0].result;
     if (alreadyLoaded) return;
 
+    await chrome.scripting.insertCSS({
+      target: { tabId },
+      files: ['content.css'],
+    });
     await chrome.scripting.executeScript({
       target: { tabId },
       files: ['docx-lib.js', 'content.js'],
