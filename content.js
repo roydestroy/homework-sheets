@@ -206,7 +206,24 @@
     return paragraphs;
   }
 
-  function buildDocument(inClassLines, homeworkLines, studentCount) {
+  // The title chosen in the panel, printed centered at the top of every page.
+  function titleHeader(title) {
+    const { Header, Paragraph, TextRun, AlignmentType } = window.docx;
+    return new Header({
+      children: [new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({
+          text: title,
+          bold: true,
+          color: TEXT_COLOR,
+          font: "Calibri",
+          size: 24, // 12pt
+        })],
+      })],
+    });
+  }
+
+  function buildDocument(inClassLines, homeworkLines, studentCount, title) {
     const { Document } = window.docx;
     const children = [];
 
@@ -222,10 +239,12 @@
         properties: {
           page: {
             size: { width: 11906, height: 16838 }, // A4
-            margin: { top: 720, right: 720, bottom: 720, left: 720 }, // 1.27cm — Word's "Narrow" preset
+            // 1.27cm — Word's "Narrow" preset, except the top leaves room for the title header
+            margin: { top: 1080, right: 720, bottom: 720, left: 720, header: 432 },
           },
           column: { count: 2, space: 720 } // two columns, 0.5" gutter — saves paper for cutting into strips
         },
+        headers: { default: titleHeader(title) },
         children
       }]
     });
@@ -233,7 +252,8 @@
 
   async function generateAndDownload(inClassLines, homeworkLines, studentCount, fileName) {
     const { Packer } = window.docx;
-    const doc = buildDocument(inClassLines, homeworkLines, studentCount);
+    const title = fileName.replace(/\.docx$/i, '');
+    const doc = buildDocument(inClassLines, homeworkLines, studentCount, title);
     const blob = await Packer.toBlob(doc);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
