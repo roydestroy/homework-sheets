@@ -9,6 +9,7 @@ Teachers post homework to a Wix group in a simple text format (see [Post Format]
 The generated document:
 
 - Repeats the in-class text once at the top, then the homework block once per student, plus one extra slip for the teacher
+- Prints the title from the panel's name box (the post title by default) as a centered header on every page, as well as using it for the file name
 - Uses two columns and A4 page size to minimize paper use
 - Never splits a single student's homework block across a column or page break (so cutting strips never spans two sheets of paper)
 - Automatically expands posts that are truncated behind a "Show more" / "Περισσότερα" button before reading them, so long posts are never read partially
