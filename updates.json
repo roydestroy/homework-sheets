@@ -3,9 +3,9 @@
     "homework-sheets@eurognosi-fni.com": {
       "updates": [
         {
-          "version": "2.2",
-          "update_link": "https://github.com/roydestroy/homework-sheets/releases/download/v2.2/homework-sheets-2.2.xpi",
-          "update_hash": "sha256:b62ce473d90caa8c878a361030bd718002772f465900fb58854c170594df4a24"
+          "version": "2.3",
+          "update_link": "https://github.com/roydestroy/homework-sheets/releases/download/v2.3/homework-sheets-2.3.xpi",
+          "update_hash": "sha256:2db91a8d70ee2a834fdfec344d7b00b44a2e21871973283d513218ad6be6a25f"
         }
       ]
     }
