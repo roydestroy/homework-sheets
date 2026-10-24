@@ -107,7 +107,7 @@ To build the Chrome/Edge zip locally (for the manual first upload, or Edge), run
 
 ## Post format
 
-For the button to appear, a post needs two labels, each in capital letters on their own line: `IN CLASS` and `HOMEWORK`. Everything between them is treated as the in-class text; everything after `HOMEWORK` is treated as the homework text.
+For the button to appear, a post needs two labels, each on their own line: `IN CLASS` and `HOMEWORK` (any capitalisation works, e.g. `In Class` or `homework`; the sheet always prints them in capitals). Everything between them is treated as the in-class text; everything after `HOMEWORK` is treated as the homework text.
 
 ```
 IN CLASS

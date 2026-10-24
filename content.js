@@ -138,9 +138,10 @@
   }
 
   // Matches a line that is ONLY the marker (optionally bold, optionally with a colon),
-  // e.g. "IN CLASS", "**HOMEWORK**", "HOMEWORK:" — not a line that merely contains the word.
-  const IN_CLASS_LINE = /^\*{0,2}IN[\s-]+CLASS:?\*{0,2}:?$/;
-  const HOMEWORK_LINE = /^\*{0,2}HOMEWORK:?\*{0,2}:?$/;
+  // e.g. "IN CLASS", "**HOMEWORK**", "Homework:" — not a line that merely contains the word.
+  // Case-insensitive, so "In Class" / "in class" / "Homework" all count.
+  const IN_CLASS_LINE = /^\*{0,2}IN[\s-]+CLASS:?\*{0,2}:?$/i;
+  const HOMEWORK_LINE = /^\*{0,2}HOMEWORK:?\*{0,2}:?$/i;
 
   function parsePost(lines) {
     const inClassIdx = lines.findIndex(l => IN_CLASS_LINE.test(l.trim()));
@@ -155,8 +156,11 @@
 
     // Keep the marker lines themselves as part of each section's content,
     // so "IN CLASS" / "HOMEWORK" still show up as labels in the generated document.
+    // Uppercased so the sheet looks the same however the teacher typed the label.
     const inClassLines = lines.slice(inClassIdx, homeworkIdx);
     const homeworkLines = lines.slice(homeworkIdx);
+    inClassLines[0] = inClassLines[0].toUpperCase();
+    homeworkLines[0] = homeworkLines[0].toUpperCase();
 
     // Trim trailing blank lines from each section
     while (inClassLines.length && !inClassLines[inClassLines.length - 1].trim()) inClassLines.pop();
